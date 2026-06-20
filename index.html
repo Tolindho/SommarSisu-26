@@ -68,6 +68,7 @@ h1{font-size:24px;font-weight:600;margin:6px 0 0;letter-spacing:-.01em;}
 .fld.w{flex:0 0 100%;}
 label{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
 input{width:100%;background:var(--card);border:1px solid var(--line2);color:var(--ink);font-family:var(--mono);font-size:14px;border-radius:10px;padding:11px;}
+textarea{width:100%;background:var(--card);border:1px solid var(--line2);color:var(--ink);font-family:var(--mono);font-size:12px;border-radius:10px;padding:10px;resize:vertical;line-height:1.4;}
 .save{margin-top:14px;width:100%;cursor:pointer;border:none;border-radius:11px;padding:12px;font-weight:600;font-size:14px;color:#fff;background:var(--accent);font-family:var(--display);transition:background .2s;}
 .save:hover{filter:brightness(1.04);}
 .save:disabled{background:var(--green);}
@@ -97,6 +98,14 @@ input{width:100%;background:var(--card);border:1px solid var(--line2);color:var(
 .badge{margin-top:14px;background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-size:13px;color:var(--muted);}
 .badge b{color:var(--accent2);}
 .storeinfo{text-align:center;font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--muted);margin-top:16px;}
+.wgbar{height:8px;border-radius:99px;background:var(--soft);overflow:hidden;margin:12px 0 8px;}
+.wgbar>i{display:block;height:100%;background:var(--accent);border-radius:99px;width:0;transition:width .5s ease;}
+.wgline{font-family:var(--mono);font-size:12px;color:var(--muted);}
+.wgline b{color:var(--accent2);}
+.wgchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.wgchip{font-family:var(--mono);font-size:11px;border:1px solid var(--line);background:var(--soft);border-radius:8px;padding:4px 8px;color:var(--muted);}
+.wgchip.ok{background:#EAF1E8;border-color:#CBDDC7;color:#4F7A4F;}
+.wgchip.now{border-color:var(--accent);}
 
 .calhead{display:flex;justify-content:space-between;align-items:baseline;margin:6px 0 12px;}
 .calhead .t{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
@@ -141,6 +150,7 @@ input{width:100%;background:var(--card);border:1px solid var(--line2);color:var(
 .st-done{color:var(--green);font-weight:600;}
 .st-undone{color:var(--red);font-weight:600;}
 .st-coming{color:var(--muted);font-weight:600;}
+.st-rest{color:var(--muted);}
 .epline{margin-bottom:5px;}
 .epline .m{color:var(--muted);}
 .epsub{font-family:var(--mono);font-size:11px;color:var(--muted);margin:-1px 0 7px;}
@@ -207,6 +217,23 @@ input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:
       <div class="stat"><div class="v" id="st-total">0</div><div class="k">solar totalt</div></div>
     </div>
     <div class="badge" id="badge"></div>
+    <div class="card" id="weekgoal-card">
+      <div class="tag">Veckomål</div>
+      <div class="goal">10 solar i veckan, knä inräknat</div>
+      <div class="wgbar"><i id="wg-bar"></i></div>
+      <div class="wgline" id="wg-thisweek"></div>
+      <div id="wg-weeks" style="margin-top:10px;"></div>
+    </div>
+    <div class="card" id="backup-card">
+      <div class="tag">Säkerhetskopia</div>
+      <div class="goal">Exportera din data som text, eller återställ från en sparad text</div>
+      <textarea id="backup-text" rows="3" placeholder="Vid export visas din data här. Klistra in en sparad kopia här för att återställa." style="margin-top:10px;"></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="save" id="exp-btn" style="margin-top:0;">Exportera</button>
+        <button class="save" id="imp-btn" style="margin-top:0;background:var(--blue);">Importera</button>
+      </div>
+      <div id="backup-status" class="wgline" style="margin-top:8px;min-height:16px;"></div>
+    </div>
     <div class="storeinfo" id="storeinfo"></div>
   </section>
 
@@ -270,7 +297,7 @@ const CALSTART=new Date(2026,5,15);          // måndag 15.6, v1 startar på må
 const TRAINSTART="2026-06-19", TRAINEND="2026-08-05";
 const TRAVELSTART="2026-06-24", TRAVELEND="2026-06-25"; // arbetsresa nästa vecka, ons-tors
 const GOALDATE=new Date(2026,7,5,23,59,59);
-const BGOAL=1200, CGOAL=2400;
+const BGOAL=1200, CGOAL=2400, WEEK_GOAL=10;
 const KNEE=[
   ["k1","Ryggrotation med käpp"],
   ["k2","Foam roller framsida lår"],
@@ -289,7 +316,7 @@ const BURNER_PROG=[
 ];
 const BURNER_NOTES=["3 varv, 30 burpees","3 varv, 45 burpees","4 varv, 60 burpees","4 varv, 80 burpees","full Burner 400","jaga tiden","under 20:00"];
 
-let days={}, cooper=[], openCat=null, uiRunType=null, lastTodayCount=0;
+let days={}, cooper=[], openCat=null, uiRunType=null, uiStrType=null, lastTodayCount=0;
 
 const pad=n=>String(n).padStart(2,"0");
 const iso=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
@@ -328,6 +355,30 @@ function storageMode(){
   try{localStorage.setItem("ss26-test","1");localStorage.removeItem("ss26-test");return "local";}catch(e){return "memory";}
 }
 
+let importArmed=false;
+function bstat(t){const el=document.getElementById("backup-status");if(el)el.textContent=t;}
+async function doExport(){
+  importArmed=false;
+  const payload=JSON.stringify({v:1,exported:todayISO(),days,cooper});
+  const ta=document.getElementById("backup-text"); ta.value=payload;
+  try{ await navigator.clipboard.writeText(payload); bstat("Kopierat till urklipp. Spara texten på ett säkert ställe, t.ex. i Anteckningar."); }
+  catch(e){ ta.focus(); ta.select(); bstat("Markera texten i rutan och kopiera den manuellt."); }
+}
+async function doImport(){
+  const raw=String((document.getElementById("backup-text")||{}).value||"").trim();
+  if(!raw){importArmed=false;bstat("Klistra in din säkerhetskopia i rutan först.");return;}
+  let p;try{p=JSON.parse(raw);}catch(e){importArmed=false;bstat("Texten gick inte att läsa. Kontrollera att hela koden är inklistrad.");return;}
+  const nd=(p&&p.days&&typeof p.days==="object")?p.days:null;
+  if(!nd){importArmed=false;bstat("Hittar ingen giltig data i texten.");return;}
+  const n=Object.keys(nd).length;
+  if(!importArmed){importArmed=true;bstat("Detta ersätter nuvarande data med "+n+" dagar. Tryck Importera igen för att bekräfta.");return;}
+  days=nd; cooper=Array.isArray(p.cooper)?p.cooper:[];
+  await saveKey("days",days); await saveKey("cooper-log",cooper);
+  importArmed=false;
+  bstat("Återställt "+n+" dagar.");
+  renderToday(); renderCal(); renderGoals(); renderUpcoming(); renderBodyList(); renderBurnerLadder();
+}
+
 async function init(){
   days=await loadKey("days",{});
   cooper=await loadKey("cooper-log",[]);
@@ -347,6 +398,9 @@ async function init(){
     renderToday(); renderCal(); renderUpcoming(); renderBodyList();
   });
 
+  document.getElementById("exp-btn").addEventListener("click",doExport);
+  document.getElementById("imp-btn").addEventListener("click",doImport);
+
   renderToday(); renderCal(); renderGoals(); renderUpcoming(); renderBodyList(); renderBurnerLadder();
 
   const sm=storageMode();
@@ -357,10 +411,10 @@ async function init(){
 }
 function dayObj(d){if(!days[d])days[d]={};return days[d];}
 function dayNameShort(ds){return ["Sön","Mån","Tis","Ons","Tor","Fre","Lör"][new Date(ds).getDay()];}
-function runHint(wd){if(wd===2)return "Idag spurter eller intervaller";if(wd===1||wd===4)return "Idag vila eller lugn PK";return "Idag PK i låg puls";}
-function strHint(wd,wk){if(wd===3)return "Idag Burner v"+wk;if(wd===6)return "Idag tung styrka, kraft";return "Idag valfritt styrkepass";}
-function runShort(wd){if(wd===2)return "Spurter";if(wd===1||wd===4)return "Vila";return "PK";}
-function strShort(wd,wk,travel){if(wd===3)return "Burner v"+wk;if(wd===6)return travel?"Kroppsvikt":"Tung styrka";return null;}
+function runHint(wd){if(wd===2)return "Idag spurter eller intervaller";if(wd===5)return "Idag PK 45-55 min";if(wd===0)return "Idag längre PK 60-75 min";if(wd===4)return "Idag lätt 30 min eller vila";return "Vila idag, ingen löpning";}
+function strHint(wd,wk){if(wd===3)return "Förslag: Burner v"+wk;if(wd===6)return "Förslag: tung styrka";return "Valfritt, du väljer";}
+function runShort(wd){if(wd===2)return "Spurter";if(wd===5)return "PK";if(wd===0)return "Längre PK";if(wd===4)return "Lätt";return "Vila";}
+function strShort(wd,wk,tr){if(wd===3)return "Burner v"+wk;if(wd===6)return tr?"Kroppsvikt":"Tung styrka";return null;}
 
 /* TODAY */
 function streaks(){
@@ -399,6 +453,7 @@ function renderToday(){
     catBlock("str","💪","Styrketräning",strHint(wd,wk),o.str&&o.str.done,strDetail(t,o,wd,wk))+
     catBlock("knee","🦵","Knä","Minst 2 rörelser ger en sol",o.knee&&o.knee.done,kneeDetail(t,o));
   wireToday(t,wd,wk);
+  renderWeekGoal();
 }
 function catBlock(key,ico,nm,hint,done,detailHTML){
   return '<div class="cat'+(done?' done':'')+(openCat===key?' open':'')+'" data-cat="'+key+'">'
@@ -426,23 +481,25 @@ function runDetail(t,o,wd){
 }
 function strDetail(t,o,wd,wk){
   if(o.str&&o.str.done){
-    const s=o.str; let sum = s.type==="burner"?("Burner, "+s.total+" rep"+(s.sec?", "+fmt(s.sec):"")):s.type==="styrka"?"Tung styrka":"Extrapass";
+    const s=o.str; let sum = s.type==="burner"?("Burner, "+s.total+" rep"+(s.sec?", "+fmt(s.sec):"")):("Annan styrka"+(s.note?": "+s.note:""));
     return '<div class="doneline">Loggat: '+sum+'</div><button class="undo" data-undo="str">Ångra</button>';
   }
-  if(wd===3){
+  if(uiStrType===null)uiStrType=(wd===3?"burner":"annan");
+  let f;
+  if(uiStrType==="burner"){
     const w=burnerProgForWeek(wk), tot=burnerTotal(w);
     const rows='<div class="specrow"><span>Knäböj</span><b>'+w.r+'\u00d7'+w.sq+'</b></div>'
       +'<div class="specrow"><span>Armhävningar</span><b>'+w.r+'\u00d7'+w.pu+'</b></div>'
       +'<div class="specrow"><span>Mountain climbers</span><b>'+w.r+'\u00d7'+w.mc+'</b></div>'
       +'<div class="specrow"><span>Burpees</span><b>'+w.r+'\u00d7'+w.bu+'</b></div>';
-    return '<div class="spec"><b>Burner v'+wk+'</b> <span class="m">&middot; '+w.r+' varv &middot; '+tot+' rep'+(tot===400?", full 400":"")+'</span></div>'+rows
-      +'<div class="fields" style="margin-top:14px;"><div class="fld w"><label>Tid mm:ss</label><input id="s-time" type="text" placeholder="'+(tot>=400?"19:30":"frivilligt")+'" inputmode="numeric"></div></div>'
-      +'<button class="save" data-save="str">Spara Burner</button>';
+    f='<div class="spec"><b>Burner v'+wk+'</b> <span class="m">&middot; '+w.r+' varv &middot; '+tot+' rep'+(tot===400?", full 400":"")+'</span></div>'+rows
+      +'<div class="fields" style="margin-top:14px;"><div class="fld w"><label>Tid mm:ss</label><input id="s-time" type="text" placeholder="'+(tot>=400?"19:30":"frivilligt")+'" inputmode="numeric"></div></div>';
+  }else{
+    f='<div class="fields"><div class="fld w"><label>Vad gjorde du? (valfritt)</label><input id="s-note" type="text" placeholder="t.ex. tung styrka, gym, simning"></div></div>';
   }
-  if(wd===6){
-    return '<div class="spec">Tung styrka helkropp: knäböj, marklyft, utfall, press, rodd. <span class="m">Passet för kraften.</span></div><button class="save" data-save="str">Klar</button>';
-  }
-  return '<div class="spec">Valfritt extrapass om kroppen vill. <span class="m">Annars vila.</span></div><button class="save" data-save="str">Klar</button>';
+  return '<div class="seg"><button data-st="burner" class="'+(uiStrType==="burner"?"on":"")+'">Burner</button>'
+    +'<button data-st="annan" class="'+(uiStrType==="annan"?"on":"")+'">Annan styrka</button></div>'+f
+    +'<button class="save" data-save="str">Spara pass</button>';
 }
 function kneeDetail(t,o){
   const done=o.knee&&o.knee.ex?o.knee.ex:[];
@@ -450,8 +507,9 @@ function kneeDetail(t,o){
   return list+'<div class="kcount">'+done.length+' / 5 gjorda &middot; sol vid <b>2</b></div>';
 }
 function wireToday(t,wd,wk){
-  document.querySelectorAll("[data-head]").forEach(function(el){el.addEventListener("click",function(){const k=el.getAttribute("data-head");openCat=(openCat===k?null:k);if(k==="run")uiRunType=null;renderToday();});});
+  document.querySelectorAll("[data-head]").forEach(function(el){el.addEventListener("click",function(){const k=el.getAttribute("data-head");openCat=(openCat===k?null:k);if(k==="run")uiRunType=null;if(k==="str")uiStrType=null;renderToday();});});
   document.querySelectorAll("[data-rt]").forEach(function(b){b.addEventListener("click",function(e){e.stopPropagation();uiRunType=b.getAttribute("data-rt");renderToday();});});
+  document.querySelectorAll("[data-st]").forEach(function(b){b.addEventListener("click",function(e){e.stopPropagation();uiStrType=b.getAttribute("data-st");renderToday();});});
   document.querySelectorAll("[data-save]").forEach(function(b){b.addEventListener("click",async function(e){e.stopPropagation();const k=b.getAttribute("data-save");if(k==="run")await saveRun(t);else await saveStr(t,wd,wk);});});
   document.querySelectorAll("[data-undo]").forEach(function(b){b.addEventListener("click",async function(e){e.stopPropagation();const k=b.getAttribute("data-undo");delete dayObj(t)[k];await saveKey("days",days);openCat=null;renderToday();renderCal();renderGoals();renderUpcoming();renderBodyList();});});
   document.querySelectorAll("[data-kex]").forEach(function(b){b.addEventListener("click",async function(e){e.stopPropagation();await toggleKnee(t,b.getAttribute("data-kex"));renderBodyList();});});
@@ -471,9 +529,8 @@ async function saveRun(t){
 }
 async function saveStr(t,wd,wk){
   const o=dayObj(t);
-  if(wd===3){const w=burnerProgForWeek(wk);o.str={done:true,type:"burner",total:burnerTotal(w),sec:parseTime(document.getElementById("s-time").value)};}
-  else if(wd===6){o.str={done:true,type:"styrka"};}
-  else{o.str={done:true,type:"other"};}
+  if(uiStrType==="burner"){const w=burnerProgForWeek(wk);o.str={done:true,type:"burner",total:burnerTotal(w),sec:parseTime((document.getElementById("s-time")||{}).value)};}
+  else{const note=String((document.getElementById("s-note")||{}).value||"").trim();o.str={done:true,type:"annan",note:note||null};}
   await saveKey("days",days);openCat=null;renderToday();renderCal();renderGoals();renderUpcoming();renderBodyList();
 }
 async function toggleKnee(t,id){
@@ -493,9 +550,11 @@ function renderUpcoming(){
   for(let i=1;i<=5;i++){
     const d=new Date(base.getFullYear(),base.getMonth(),base.getDate()+i), ds=iso(d), wd=d.getDay(), wk=weekIndex(d), tr=isTravel(ds);
     const chips=[];
+    const rs=runShort(wd), ss=strShort(wd,wk,tr);
     if(tr)chips.push('<span class="chip travel">✈ Resa</span>');
-    const rs=runShort(wd); chips.push('<span class="chip'+(rs==="Vila"?" rest":"")+'">'+rs+'</span>');
-    const ss=strShort(wd,wk,tr); if(ss)chips.push('<span class="chip key">'+ss+'</span>');
+    if(rs!=="Vila")chips.push('<span class="chip">'+rs+'</span>');
+    else if(!ss)chips.push('<span class="chip rest">Vila</span>');
+    if(ss)chips.push('<span class="chip key">'+ss+'</span>');
     chips.push('<span class="chip">Knä</span>');
     rows.push('<div class="uprow"><div class="upday">'+dayNameShort(ds)+' '+dShort(ds)+'</div><div class="uptags">'+chips.join("")+'</div></div>');
   }
@@ -532,23 +591,26 @@ function renderCal(){
   }
   const wk=weekIndex(new Date()), ws=new Date(CALSTART.getTime()+(wk-1)*7*864e5);
   let wc=0;for(let i=0;i<7;i++){const ds=iso(new Date(ws.getTime()+i*864e5));if(inWindow(ds))wc+=crownCount(days[ds]);}
-  document.getElementById("weeksun").innerHTML="Denna vecka <b style='color:var(--accent2)'>"+wc+"</b> solar";
+  document.getElementById("weeksun").innerHTML="Denna vecka <b style='color:var(--accent2)'>"+wc+"</b> / "+weekGoalFor(ws)+" solar";
   renderEditor();
 }
 function planDetail(ds){
   const d=new Date(ds), wd=d.getDay(), wk=weekIndex(d), o=days[ds]||{}, tr=isTravel(ds);
-  let run;
+  let run, runRest=false;
   if(wd===2)run="Spurter, t.ex. 5×300 m";
-  else if(wd===1||wd===4)run="Vila eller lugn PK";
-  else run="PK i låg puls, 45-55 min";
-  let str, sub="";
+  else if(wd===5)run="PK i låg puls, 45-55 min";
+  else if(wd===0)run="Längre PK, 60-75 min";
+  else if(wd===4)run="Lätt 30 min eller vila";
+  else {run="Vila";runRest=true;}
+  let str, sub="", strRest=false;
   if(wd===3){const w=burnerProgForWeek(wk), tot=burnerTotal(w);str="Burner v"+wk+", "+w.r+" varv, "+tot+" rep";sub=w.sq+" knäböj · "+w.pu+" armh · "+w.mc+" MC · "+w.bu+" burpees";}
-  else if(wd===6)str=tr?"Kroppsvikt, ingen gym":"Tung styrka: knäböj, marklyft, utfall, press, rodd";
-  else str="Valfritt styrkepass eller vila";
+  else if(wd===6)str=tr?"Kroppsvikt, ingen gym":"Tung styrka helkropp";
+  else {str="Inget styrkepass";strRest=true;}
+  const knee=(wd===1||wd===4)?"Foam rolling, valfritt":"Knä-övningar, minst 2 av 5";
   return {tr,
-    run:{txt:run,done:!!(o.run&&o.run.done)},
-    str:{txt:str,sub:sub,done:!!(o.str&&o.str.done)},
-    knee:{txt:"Knä-övningar, minst 2 av 5",done:!!(o.knee&&o.knee.done)}
+    run:{txt:run,done:!!(o.run&&o.run.done),rest:runRest},
+    str:{txt:str,sub:sub,done:!!(o.str&&o.str.done),rest:strRest},
+    knee:{txt:knee,done:!!(o.knee&&o.knee.done)}
   };
 }
 function statusSpan(done,ds){
@@ -556,21 +618,20 @@ function statusSpan(done,ds){
   if(ds<=todayISO())return '<span class="st-undone">Ogjort</span>';
   return '<span class="st-coming">Kommande</span>';
 }
+function epRow(label,cat,ds){
+  if(cat.rest)return '<div class="epline"><span class="m">'+label+'</span>  <span class="st-rest">'+cat.txt+'</span></div>';
+  return '<div class="epline"><span class="m">'+label+'</span>  '+cat.txt+' &middot; '+statusSpan(cat.done,ds)+'</div>'+(cat.sub?'<div class="epsub">'+cat.sub+'</div>':'');
+}
 function renderEditor(){
   const ed=document.getElementById("editor"), o=days[selDate]||{}, isToday=selDate===todayISO(), past=selDate<=todayISO(), p=planDetail(selDate);
   const cats=[["run","🏃","Löpning"],["str","💪","Styrketräning"],["knee","🦵","Knä"]];
   const travelnote = p.tr ? '<span class="travelnote">✈ Arbetsresa. Löpning och Burner går på hotellet, knäövningar tar fem minuter. Håll det lätt, en sol om dagen räcker.</span>' : '';
-  const sub = p.str.sub ? '<div class="epsub">'+p.str.sub+'</div>' : '';
   const toggles = past
     ? '<div class="mini">'+cats.map(function(c){const on=o[c[0]]&&o[c[0]].done;return '<button data-q="'+c[0]+'" class="'+(on?"on":"")+'"><span class="mi">'+c[1]+'</span>'+c[2]+'</button>';}).join("")+'</div>'
     : '<div class="es" style="margin:2px 0 0;">Loggas på Idag-fliken när dagen kommer.</div>';
   ed.innerHTML='<div class="et">'+dayNameShort(selDate)+' '+dShort(selDate)+(isToday?' · idag':'')+'</div>'
     +'<div class="es">'+(past?"Snabbmarkera nedan, full loggning sker på Idag-fliken.":"Planerad träning för dagen.")+'</div>'
-    +'<div class="edayplan">'
-      +'<div class="epline"><span class="m">Löpning</span>  '+p.run.txt+' &middot; '+statusSpan(p.run.done,selDate)+'</div>'
-      +'<div class="epline"><span class="m">Styrka</span>  '+p.str.txt+' &middot; '+statusSpan(p.str.done,selDate)+'</div>'+sub
-      +'<div class="epline"><span class="m">Knä</span>  '+p.knee.txt+' &middot; '+statusSpan(p.knee.done,selDate)+'</div>'
-      +travelnote+'</div>'
+    +'<div class="edayplan">'+epRow("Löpning",p.run,selDate)+epRow("Styrka",p.str,selDate)+epRow("Knä",p.knee,selDate)+travelnote+'</div>'
     + toggles;
   ed.querySelectorAll("[data-q]").forEach(function(b){b.addEventListener("click",function(){quickToggle(selDate,b.getAttribute("data-q"));});});
 }
@@ -580,6 +641,38 @@ async function quickToggle(date,cat){
   o[cat].done=!o[cat].done;
   if(!o[cat].done){ if(cat==="knee"&&o[cat].ex&&o[cat].ex.length){o[cat].done=false;} else delete o[cat]; }
   await saveKey("days",days);renderCal();renderToday();renderUpcoming();renderBodyList();
+}
+
+/* WEEKLY GOAL */
+function weekGoalFor(wStart){
+  let n=0;for(let i=0;i<7;i++){if(inWindow(iso(new Date(wStart.getTime()+i*864e5))))n++;}
+  return Math.max(1,Math.round(WEEK_GOAL*n/7));
+}
+function weekSuns(wStart){
+  let s=0;for(let i=0;i<7;i++){const ds=iso(new Date(wStart.getTime()+i*864e5));if(inWindow(ds))s+=crownCount(days[ds]);}
+  return s;
+}
+function weekData(){
+  const out=[], t=todayISO();
+  for(let w=0;w<8;w++){
+    const wStart=new Date(CALSTART.getTime()+w*7*864e5);
+    let any=false;for(let i=0;i<7;i++){if(inWindow(iso(new Date(wStart.getTime()+i*864e5))))any=true;}
+    if(!any)continue;
+    const suns=weekSuns(wStart), goal=weekGoalFor(wStart), started=iso(wStart)<=t;
+    out.push({v:w+1,suns,goal,achieved:suns>=goal,started});
+  }
+  return out;
+}
+function renderWeekGoal(){
+  if(!document.getElementById("weekgoal-card"))return;
+  const data=weekData(), cw=weekIndex(new Date());
+  const cur=data.find(x=>x.v===cw)||{suns:0,goal:WEEK_GOAL};
+  document.getElementById("wg-bar").style.width=Math.min(100,Math.round(cur.suns/cur.goal*100))+"%";
+  document.getElementById("wg-thisweek").innerHTML="Denna vecka, v"+cw+": <b>"+cur.suns+"</b> / "+cur.goal+" solar";
+  const ev=data.filter(x=>x.started), ach=ev.filter(x=>x.achieved).length;
+  document.getElementById("wg-weeks").innerHTML=
+    '<div class="wgline" style="margin-bottom:8px;">Veckor klarade: <b>'+ach+'</b> av '+ev.length+'</div>'
+    +'<div class="wgchips">'+ev.map(x=>'<span class="wgchip'+(x.achieved?' ok':'')+(x.v===cw?' now':'')+'">v'+x.v+' · '+x.suns+(x.achieved?' ✓':'')+'</span>').join("")+'</div>';
 }
 
 /* BURNER LADDER */
